@@ -543,7 +543,7 @@ class OpenIDConnect(object):
             flow.redirect_uri = redirect_uri
         return flow
 
-    def redirect_to_auth_server(self, destination=None, customstate=None):
+    def redirect_to_auth_server(self, destination=None, customstate=None, extra_params={}):
         """
         Set a CSRF token in the session, and redirect to the IdP.
 
@@ -554,6 +554,7 @@ class OpenIDConnect(object):
         :param customstate: The custom data passed via the ODIC state.
             Note that this only works with a custom_callback, and this will
             ignore destination.
+        :param extra_params: Extra query parameters passed to auth endpoint.
         :type customstate: Anything that can be serialized
         :returns: A redirect response to start the login process.
         :rtype: Flask Response
@@ -578,20 +579,21 @@ class OpenIDConnect(object):
         state[statefield] = self.extra_data_serializer.dumps(
             statevalue).decode('utf-8')
 
-        extra_params = {
+        params = {
             'state': urlsafe_b64encode(json.dumps(state).encode('utf-8')),
         }
-        extra_params.update(current_app.config['OIDC_EXTRA_REQUEST_AUTH_PARAMS'])
+        params.update(current_app.config['OIDC_EXTRA_REQUEST_AUTH_PARAMS'])
         if current_app.config['OIDC_GOOGLE_APPS_DOMAIN']:
-            extra_params['hd'] = current_app.config['OIDC_GOOGLE_APPS_DOMAIN']
+            params['hd'] = current_app.config['OIDC_GOOGLE_APPS_DOMAIN']
         if current_app.config['OIDC_OPENID_REALM']:
-            extra_params['openid.realm'] = current_app.config[
+            params['openid.realm'] = current_app.config[
                 'OIDC_OPENID_REALM']
+        params.update(extra_params)
 
         flow = self._flow_for_request()
         auth_url = '{url}&{extra_params}'.format(
             url=flow.step1_get_authorize_url(),
-            extra_params=urlencode(extra_params))
+            extra_params=urlencode(params))
         # if the user has an ID token, it's invalid, or we wouldn't be here
         self._set_cookie_id_token(None)
         return redirect(auth_url)
